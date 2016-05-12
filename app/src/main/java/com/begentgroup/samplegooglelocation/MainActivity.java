@@ -1,12 +1,16 @@
 package com.begentgroup.samplegooglelocation;
 
 import android.Manifest;
+import android.app.PendingIntent;
+import android.content.DialogInterface;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -21,6 +25,8 @@ import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.location.Geofence;
+import com.google.android.gms.location.GeofencingRequest;
 import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
@@ -67,14 +73,14 @@ public class MainActivity extends AppCompatActivity implements
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         messageView = (TextView) findViewById(R.id.text_message);
-        infoView = (TextView)findViewById(R.id.text_info);
-        listView = (ListView)findViewById(R.id.listView);
+        infoView = (TextView) findViewById(R.id.text_info);
+        listView = (ListView) findViewById(R.id.listView);
         mAdapter = new ArrayAdapter<POI>(this, android.R.layout.simple_list_item_1);
         listView.setAdapter(mAdapter);
         listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                POI poi = (POI)listView.getItemAtPosition(position);
+                POI poi = (POI) listView.getItemAtPosition(position);
                 Marker m = markerResolver.get(poi);
                 animateMap(m);
             }
@@ -121,7 +127,7 @@ public class MainActivity extends AppCompatActivity implements
             return true;
         }
         if (id == android.R.id.home) {
-            if (listView.getVisibility()== View.GONE) {
+            if (listView.getVisibility() == View.GONE) {
                 listView.setVisibility(View.VISIBLE);
                 Animation anim = AnimationUtils.loadAnimation(this, R.anim.slide_left_in);
                 listView.startAnimation(anim);
@@ -209,6 +215,8 @@ public class MainActivity extends AppCompatActivity implements
         mMap.setOnMarkerClickListener(this);
         mMap.setOnInfoWindowClickListener(this);
         mMap.setOnCameraChangeListener(this);
+        mMap.setInfoWindowAdapter(new MyInfoWindowAdapter(this, poiResolver));
+
     }
 
     @Override
@@ -218,8 +226,44 @@ public class MainActivity extends AppCompatActivity implements
 
     @Override
     public void onInfoWindowClick(Marker marker) {
+        final POI poi = poiResolver.get(marker);
         Toast.makeText(this, "marker : " + marker.getTitle(), Toast.LENGTH_SHORT).show();
         marker.hideInfoWindow();
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("register geofence");
+        builder.setMessage("geofencing...");
+        builder.setPositiveButton("Yes", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                registerGeofence(poi);
+            }
+        });
+        builder.setNegativeButton("No", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+
+            }
+        });
+
+        builder.show();
+    }
+
+    private void registerGeofence(POI poi) {
+        Geofence geofence = new Geofence.Builder().setRequestId(poi.id)
+                .setCircularRegion(poi.getLatitude(), poi.getLongitude(), 100)
+                .setExpirationDuration(System.currentTimeMillis() + 24 * 60 * 60 * 1000)
+                .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_ENTER | Geofence.GEOFENCE_TRANSITION_EXIT)
+                .build();
+        GeofencingRequest request = new GeofencingRequest.Builder()
+                .addGeofence(geofence)
+                .setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_ENTER)
+                .build();
+
+        PendingIntent pi = PendingIntent.getService(this, 0, new Intent(this, GeofenceService.class), 0);
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+        LocationServices.GeofencingApi.addGeofences(mClient, request, pi);
     }
 
     @Override
