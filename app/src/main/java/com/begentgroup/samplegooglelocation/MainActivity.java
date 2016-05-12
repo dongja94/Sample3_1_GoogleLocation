@@ -75,7 +75,6 @@ public class MainActivity extends AppCompatActivity implements
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 POI poi = (POI)listView.getItemAtPosition(position);
-                moveMap(poi.getLatitude(), poi.getLongitude(), 15);
                 Marker m = markerResolver.get(poi);
                 animateMap(m);
             }
