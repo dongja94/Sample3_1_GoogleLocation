@@ -15,8 +15,17 @@ import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.maps.CameraUpdate;
+import com.google.android.gms.maps.CameraUpdateFactory;
+import com.google.android.gms.maps.GoogleMap;
+import com.google.android.gms.maps.OnMapReadyCallback;
+import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.LatLng;
 
-public class MainActivity extends AppCompatActivity implements GoogleApiClient.OnConnectionFailedListener, GoogleApiClient.ConnectionCallbacks {
+public class MainActivity extends AppCompatActivity implements
+        GoogleApiClient.OnConnectionFailedListener,
+        GoogleApiClient.ConnectionCallbacks,
+        OnMapReadyCallback {
 
     GoogleApiClient mClient;
     TextView messageView;
@@ -31,6 +40,14 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.O
                 .enableAutoManage(this, this)
                 .addConnectionCallbacks(this)
                 .build();
+        SupportMapFragment fragment = (SupportMapFragment)getSupportFragmentManager().findFragmentById(R.id.map_fragment);
+        fragment.getMapAsync(this);
+    }
+
+    GoogleMap mMap;
+    @Override
+    public void onMapReady(GoogleMap googleMap) {
+        mMap = googleMap;
     }
 
     @Override
@@ -57,6 +74,10 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.O
     private void displayMessage(Location location) {
         if (location != null) {
            messageView.setText("lat : " + location.getLatitude() + ", lng : " + location.getLongitude());
+            CameraUpdate update = CameraUpdateFactory.newLatLngZoom(new LatLng(location.getLatitude(), location.getLongitude()), 15f);
+            if (mMap != null) {
+                mMap.animateCamera(update);
+            }
         }
     }
 
