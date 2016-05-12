@@ -9,8 +9,10 @@ import com.google.gson.Gson;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.net.CookieManager;
 import java.net.CookiePolicy;
+import java.net.URLEncoder;
 import java.util.concurrent.TimeUnit;
 
 import okhttp3.Cache;
@@ -118,6 +120,38 @@ public class NetworkManager {
                 if (response.isSuccessful()) {
                     AddressInfoResult data = gson.fromJson(response.body().charStream(), AddressInfoResult.class);
                     result.result = data.addressInfo;
+                    mHandler.sendMessage(mHandler.obtainMessage(MESSAGE_SUCCESS, result));
+                } else {
+                    throw new IOException(response.message());
+                }
+            }
+        });
+        return request;
+    }
+
+    private static final String TMAP_SEARCH_POI = TMAP_SERVER + "/tmap/pois?searchKeyword=%s&resCoordType=WGS84GEO&version=1";
+    public Request getTMapSearchPOI(Object tag, String keyword, OnResultListener<SearchPOIInfo> listener) throws UnsupportedEncodingException {
+        String url = String.format(TMAP_SEARCH_POI, URLEncoder.encode(keyword,"utf-8"));
+        Request request = new Request.Builder()
+                .url(url)
+                .header("Accept","application/json")
+                .header("appKey","458a10f5-c07e-34b5-b2bd-4a891e024c2a")
+                .build();
+        final NetworkResult<SearchPOIInfo> result = new NetworkResult<>();
+        result.request = request;
+        result.listener = listener;
+        mClient.newCall(request).enqueue(new Callback() {
+            @Override
+            public void onFailure(Call call, IOException e) {
+                result.excpetion = e;
+                mHandler.sendMessage(mHandler.obtainMessage(MESSAGE_FAIL, result));
+            }
+
+            @Override
+            public void onResponse(Call call, Response response) throws IOException {
+                if (response.isSuccessful()) {
+                    PoiSearchResult data = gson.fromJson(response.body().charStream(), PoiSearchResult.class);
+                    result.result = data.searchPoiInfo;
                     mHandler.sendMessage(mHandler.obtainMessage(MESSAGE_SUCCESS, result));
                 } else {
                     throw new IOException(response.message());

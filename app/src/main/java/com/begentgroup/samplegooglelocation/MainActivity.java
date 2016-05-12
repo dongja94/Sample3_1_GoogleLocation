@@ -8,6 +8,14 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.view.View;
+import android.view.animation.Animation;
+import android.view.animation.AnimationUtils;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
+import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -29,6 +37,9 @@ import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.VisibleRegion;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 
 import okhttp3.Request;
 
@@ -45,12 +56,31 @@ public class MainActivity extends AppCompatActivity implements
     TextView messageView;
     TextView infoView;
 
+    ListView listView;
+    ArrayAdapter<POI> mAdapter;
+
+    Map<Marker, POI> poiResolver = new HashMap<>();
+    Map<POI, Marker> markerResolver = new HashMap<>();
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         messageView = (TextView) findViewById(R.id.text_message);
         infoView = (TextView)findViewById(R.id.text_info);
+        listView = (ListView)findViewById(R.id.listView);
+        mAdapter = new ArrayAdapter<POI>(this, android.R.layout.simple_list_item_1);
+        listView.setAdapter(mAdapter);
+        listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                POI poi = (POI)listView.getItemAtPosition(position);
+                moveMap(poi.getLatitude(), poi.getLongitude(), 15);
+                Marker m = markerResolver.get(poi);
+                animateMap(m);
+            }
+        });
+
         mClient = new GoogleApiClient.Builder(this)
                 .addApi(LocationServices.API)
                 .enableAutoManage(this, this)
@@ -58,6 +88,110 @@ public class MainActivity extends AppCompatActivity implements
                 .build();
         SupportMapFragment fragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map_fragment);
         fragment.getMapAsync(this);
+
+        getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+        getSupportActionBar().setHomeAsUpIndicator(android.R.drawable.ic_dialog_map);
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.menu_main, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        int id = item.getItemId();
+        if (id == R.id.menu_search) {
+            PoiSearchDialogFragment f = new PoiSearchDialogFragment();
+            f.setOnPoiSearchResultCallback(new PoiSearchDialogFragment.OnPoiSearchResultCallback() {
+                @Override
+                public void onPoiSearchResult(SearchPOIInfo info) {
+                    boolean isFirst = true;
+                    clearAll();
+                    for (POI poi : info.pois.poiList) {
+                        if (isFirst) {
+                            moveMap(poi.getLatitude(), poi.getLongitude(), 15f);
+                            isFirst = false;
+                        }
+                        addMarker(poi);
+                    }
+                }
+            });
+            f.show(getSupportFragmentManager(), "searchdialog");
+            return true;
+        }
+        if (id == android.R.id.home) {
+            if (listView.getVisibility()== View.GONE) {
+                listView.setVisibility(View.VISIBLE);
+                Animation anim = AnimationUtils.loadAnimation(this, R.anim.slide_left_in);
+                listView.startAnimation(anim);
+            } else {
+                listView.setVisibility(View.GONE);
+                Animation anim = AnimationUtils.loadAnimation(this, R.anim.slide_left_out);
+                anim.setAnimationListener(new Animation.AnimationListener() {
+                    @Override
+                    public void onAnimationStart(Animation animation) {
+
+                    }
+
+                    @Override
+                    public void onAnimationEnd(Animation animation) {
+                        listView.setVisibility(View.GONE);
+                    }
+
+                    @Override
+                    public void onAnimationRepeat(Animation animation) {
+
+                    }
+                });
+                listView.startAnimation(anim);
+//                ViewPropertyAnimatorCompat animator = ViewCompat.animate(listView);
+//                animator.translationX(-listView.getMeasuredWidth());
+//                animator.setListener(new ViewPropertyAnimatorListener() {
+//                    @Override
+//                    public void onAnimationStart(View view) {
+//
+//                    }
+//
+//                    @Override
+//                    public void onAnimationEnd(View view) {
+//                        listView.setVisibility(View.GONE);
+//                    }
+//
+//                    @Override
+//                    public void onAnimationCancel(View view) {
+//
+//                    }
+//                });
+//                animator.start();
+            }
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
+    private void clearAll() {
+        Set<Marker> marker = poiResolver.keySet();
+        for (Marker m : marker) {
+            m.remove();
+        }
+        mAdapter.clear();
+        poiResolver.clear();
+        markerResolver.clear();
+    }
+
+    public void addMarker(POI poi) {
+        MarkerOptions options = new MarkerOptions();
+        options.position(new LatLng(poi.getLatitude(), poi.getLongitude()));
+        options.icon(BitmapDescriptorFactory.defaultMarker());
+        options.anchor(0.5f, 1);
+        options.title(poi.name);
+        options.snippet(poi.getAddress());
+        Marker marker = mMap.addMarker(options);
+        mAdapter.add(poi);
+
+        markerResolver.put(poi, marker);
+        poiResolver.put(marker, poi);
     }
 
     GoogleMap mMap;
@@ -147,6 +281,32 @@ public class MainActivity extends AppCompatActivity implements
                 }
             });
             moveMap(location.getLatitude(), location.getLongitude(), 15f);
+        }
+    }
+
+    private void animateMap(final Marker marker) {
+        CameraPosition position = new CameraPosition.Builder()
+                .target(marker.getPosition())
+                .zoom(15)
+//                .bearing(30)
+//                .tilt(30)
+                .build();
+
+//        CameraUpdate update = CameraUpdateFactory.newLatLngZoom(new LatLng(lat, lng), zoom);
+        CameraUpdate update = CameraUpdateFactory.newCameraPosition(position);
+
+        if (mMap != null) {
+            mMap.animateCamera(update, 1000, new GoogleMap.CancelableCallback() {
+                @Override
+                public void onFinish() {
+                    marker.showInfoWindow();
+                }
+
+                @Override
+                public void onCancel() {
+
+                }
+            });
         }
     }
 
