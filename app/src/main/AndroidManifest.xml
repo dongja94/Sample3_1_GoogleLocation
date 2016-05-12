@@ -6,7 +6,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.VIBRATE"/>
+    <uses-permission android:name="android.permission.VIBRATE" />
 
     <application
         android:name=".MyApplication"
@@ -29,6 +29,10 @@
 
         <service
             android:name=".GeofenceService"
+            android:enabled="true"
+            android:exported="true" />
+        <service
+            android:name=".ActivitiesService"
             android:enabled="true"
             android:exported="true"></service>
     </application>

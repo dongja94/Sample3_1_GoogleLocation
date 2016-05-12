@@ -25,6 +25,7 @@ import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.location.ActivityRecognition;
 import com.google.android.gms.location.Geofence;
 import com.google.android.gms.location.GeofencingRequest;
 import com.google.android.gms.location.LocationListener;
@@ -88,6 +89,7 @@ public class MainActivity extends AppCompatActivity implements
 
         mClient = new GoogleApiClient.Builder(this)
                 .addApi(LocationServices.API)
+                .addApi(ActivityRecognition.API)
                 .enableAutoManage(this, this)
                 .addConnectionCallbacks(this)
                 .build();
@@ -124,6 +126,11 @@ public class MainActivity extends AppCompatActivity implements
                 }
             });
             f.show(getSupportFragmentManager(), "searchdialog");
+            return true;
+        }
+        if (id == R.id.menu_activities) {
+            PendingIntent pi = PendingIntent.getService(this, 0, new Intent(this, ActivitiesService.class), 0);
+            ActivityRecognition.ActivityRecognitionApi.requestActivityUpdates(mClient,60*1000, pi);
             return true;
         }
         if (id == android.R.id.home) {
