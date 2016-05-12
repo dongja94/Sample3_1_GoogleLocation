@@ -26,6 +26,11 @@ import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.VisibleRegion;
+
+import java.io.IOException;
+
+import okhttp3.Request;
 
 public class MainActivity extends AppCompatActivity implements
         GoogleApiClient.OnConnectionFailedListener,
@@ -33,6 +38,7 @@ public class MainActivity extends AppCompatActivity implements
         OnMapReadyCallback,
         GoogleMap.OnMarkerClickListener,
         GoogleMap.OnInfoWindowClickListener,
+        GoogleMap.OnCameraChangeListener,
         GoogleMap.OnMapLongClickListener {
 
     GoogleApiClient mClient;
@@ -69,6 +75,12 @@ public class MainActivity extends AppCompatActivity implements
         mMap.setOnMapLongClickListener(this);
         mMap.setOnMarkerClickListener(this);
         mMap.setOnInfoWindowClickListener(this);
+        mMap.setOnCameraChangeListener(this);
+    }
+
+    @Override
+    public void onCameraChange(CameraPosition cameraPosition) {
+        VisibleRegion region = mMap.getProjection().getVisibleRegion();
     }
 
     @Override
@@ -122,7 +134,18 @@ public class MainActivity extends AppCompatActivity implements
 
     private void displayMessage(Location location) {
         if (location != null) {
-            messageView.setText("lat : " + location.getLatitude() + ", lng : " + location.getLongitude());
+//            messageView.setText("lat : " + location.getLatitude() + ", lng : " + location.getLongitude());
+            NetworkManager.getInstance().getTMapReverseGeocoding(this, location.getLatitude(), location.getLongitude(), new NetworkManager.OnResultListener<AddressInfo>() {
+                @Override
+                public void onSuccess(Request request, AddressInfo result) {
+                    messageView.setText(result.fullAddress);
+                }
+
+                @Override
+                public void onFail(Request request, IOException exception) {
+
+                }
+            });
             moveMap(location.getLatitude(), location.getLongitude(), 15f);
         }
     }
